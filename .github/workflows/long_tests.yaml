@@ -1,7 +1,5 @@
 name: long-tests
 on:
-  schedule:
-    - cron: "0 1 * * *" # Runs at 1 AM UTC every day (offset from other nightly tests)
   workflow_dispatch:
     inputs:
       run_id:
