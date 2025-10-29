@@ -17,7 +17,7 @@
 //
 // - RPCServer: The core server implementation handling connections, authentication, and request routing
 // - Handlers: Individual command processors for each supported RPC method
-// - Distributor: Component for reliable transaction propagation to the network
+// - Propagation Client: Interface to propagation service for transaction submission
 // - Authentication: Two-tier system with admin and limited-access users
 //
 // Security features:
@@ -30,6 +30,7 @@
 // The RPC service integrates with several other Teranode components including:
 // - Blockchain service: For block data and chain state information
 // - Block Assembly service: For mining operations
+// - Propagation service: For transaction submission and validation
 // - P2P service: For peer information and management
 // - Legacy service: For compatibility with older network protocols
 // - UTXO store: For transaction validation
@@ -74,7 +75,7 @@ import (
 	"github.com/bsv-blockchain/teranode/util/health"
 	"github.com/ordishs/gocore"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
+	otelPropagation "go.opentelemetry.io/otel/propagation"
 )
 
 // API version constants
@@ -1293,7 +1294,7 @@ func (s *RPCServer) Start(ctx context.Context, readyCh chan<- struct{}) error {
 	rpcServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Extract trace context from incoming request headers
 		ctx := r.Context()
-		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(r.Header))
+		ctx = otel.GetTextMapPropagator().Extract(ctx, otelPropagation.HeaderCarrier(r.Header))
 
 		// Update request with the new context
 		r = r.WithContext(ctx)
@@ -1379,11 +1380,6 @@ func (s *RPCServer) Start(ctx context.Context, readyCh chan<- struct{}) error {
 //   - blockchainClient: Interface to the blockchain service for block and chain operations
 //   - blockValidationClient: Interface to the block validation service
 //   - utxoStore: Interface to the UTXO database for transaction validation
-//   - blockAssemblyClient: Interface to the block assembly service for mining operations
-//   - peerClient: Interface to the legacy peer service
-//   - p2pClient: Interface to the P2P network service
-//   - txStore: Interface to the transaction blob store for persisting transactions
-//   - validatorClient: Interface to the validator service for transaction validation
 //
 // Returns:
 //   - *RPCServer: Configured server instance ready for initialization
@@ -1415,8 +1411,6 @@ func NewServer(logger ulogger.Logger, tSettings *settings.Settings, blockchainCl
 		blockAssemblyClient:    blockAssemblyClient,
 		peerClient:             peerClient,
 		p2pClient:              p2pClient,
-		txStore:                txStore,
-		validatorClient:        validatorClient,
 	}
 
 	rpcUser := tSettings.RPC.RPCUser
