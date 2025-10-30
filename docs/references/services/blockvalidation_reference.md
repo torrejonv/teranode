@@ -31,7 +31,7 @@ type Server struct {
 
     kafkaConsumerClient       kafka.KafkaConsumerGroupI              // Kafka message consumption client
     processBlockNotify        *ttlcache.Cache[chainhash.Hash, bool]   // Cache for block processing state
-    catchupAlternatives       *ttlcache.Cache[chainhash.Hash, []processBlockCatchup] // Alternative peer sources for catchup
+    catchupAlternatives       *ttlcache.Cache[chainhash.Hash, []processBlockCatchup] // Alternative peer sources for catchup blocks
     stats                     *gocore.Stat                            // Operational metrics tracking
     peerCircuitBreakers       *catchup.PeerCircuitBreakers            // Circuit breakers for peer management
     peerMetrics               *catchup.CatchupMetrics                 // Peer performance metrics
