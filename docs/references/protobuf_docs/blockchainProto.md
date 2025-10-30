@@ -12,6 +12,8 @@
     - [GetBestHeightAndTimeResponse](#GetBestHeightAndTimeResponse)
     - [GetBlockByHeightRequest](#GetBlockByHeightRequest)
     - [GetBlockByIDRequest](#GetBlockByIDRequest)
+    - [GetBlocksByHeightRequest](#GetBlocksByHeightRequest)
+    - [GetBlocksByHeightResponse](#GetBlocksByHeightResponse)
     - [GetBlockExistsResponse](#GetBlockExistsResponse)
     - [GetBlockGraphDataRequest](#GetBlockGraphDataRequest)
     - [GetBlockHeaderIDsResponse](#GetBlockHeaderIDsResponse)
@@ -27,6 +29,7 @@
     - [GetBlockHeadersRequest](#GetBlockHeadersRequest)
     - [GetBlockHeadersResponse](#GetBlockHeadersResponse)
     - [GetBlockHeadersToCommonAncestorRequest](#GetBlockHeadersToCommonAncestorRequest)
+    - [GetBlockHeadersFromCommonAncestorRequest](#GetBlockHeadersFromCommonAncestorRequest)
     - [GetBlockInChainByHeightHashRequest](#GetBlockInChainByHeightHashRequest)
     - [GetBlockIsMinedRequest](#GetBlockIsMinedRequest)
     - [GetBlockIsMinedResponse](#GetBlockIsMinedResponse)
@@ -55,6 +58,7 @@
     - [GetNextBlockIDResponse](#GetNextBlockIDResponse)
     - [GetNextWorkRequiredRequest](#GetNextWorkRequiredRequest)
     - [GetNextWorkRequiredResponse](#GetNextWorkRequiredResponse)
+    - [GetNextBlockIDResponse](#GetNextBlockIDResponse)
     - [GetStateRequest](#GetStateRequest)
     - [GetSuitableBlockRequest](#GetSuitableBlockRequest)
     - [GetSuitableBlockResponse](#GetSuitableBlockResponse)
@@ -1198,6 +1202,7 @@ BlockchainAPI service provides comprehensive blockchain management functionality
 | GetBlockLocator | [GetBlockLocatorRequest](#blockchain_api-GetBlockLocatorRequest) | [GetBlockLocatorResponse](#blockchain_api-GetBlockLocatorResponse) | Retrieves a block locator for chain synchronization. |
 | LocateBlockHeaders | [LocateBlockHeadersRequest](#blockchain_api-LocateBlockHeadersRequest) | [LocateBlockHeadersResponse](#blockchain_api-LocateBlockHeadersResponse) | Finds block headers using a locator. |
 | GetBestHeightAndTime | [.google.protobuf.Empty](#google-protobuf-Empty) | [GetBestHeightAndTimeResponse](#blockchain_api-GetBestHeightAndTimeResponse) | Retrieves the current best height and median time. |
+| ReportPeerFailure | [ReportPeerFailureRequest](#blockchain_api-ReportPeerFailureRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | Notifies about peer download failures (catchup, subtree, block, etc). |
 
  <!-- end services -->
 
