@@ -84,7 +84,7 @@ docker compose logs [service_name]
 - Since time:
 
   ```bash
-  docker compose logs --since 2023-07-01T00:00:00 [service_name]
+  docker compose logs --since 2025-01-01T00:00:00 [service_name]
   ```
 
 ##### Checking Logs for Specific Teranode Microservices
