@@ -12,7 +12,6 @@
 //   - UTXODiff: Difference sets for tracking UTXO changes during block processing
 //   - UTXOMap: High-performance map implementation optimized for UTXO operations
 //
-//
 // Thread safety:
 // Map implementations (swissMap, goMap) and UTXOSetCache provide built-in thread safety
 // using sync.RWMutex for concurrent access protection.
