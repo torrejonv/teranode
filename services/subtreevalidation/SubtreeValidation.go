@@ -486,6 +486,9 @@ type ValidateSubtree struct {
 	// SubtreeHash is the unique identifier hash of the subtree to be validated
 	SubtreeHash chainhash.Hash
 
+	// PeerID is the ID of the peer from which we received the subtree
+	PeerID string
+
 	// BaseURL is the source URL for retrieving missing transactions if needed
 	BaseURL string
 
@@ -830,6 +833,13 @@ func (u *Server) ValidateSubtreeInternal(ctx context.Context, v ValidateSubtree,
 	// only set this on no errors
 	prometheusSubtreeValidationValidateSubtreeDuration.Observe(float64(time.Since(startTotal).Microseconds()) / 1_000_000)
 
+	// Increase peer's reputation for providing a valid subtree
+	if u.p2pClient != nil && v.PeerID != "" {
+		if err := u.p2pClient.ReportValidSubtree(ctx, v.PeerID, v.SubtreeHash.String()); err != nil {
+			u.logger.Warnf("[ValidateSubtreeInternal][%s] failed to report valid subtree to peer %s: %v", v.SubtreeHash.String(), v.PeerID, err)
+		}
+	}
+
 	return subtree, nil
 }
 
@@ -884,7 +894,14 @@ func (u *Server) getSubtreeTxHashes(spanCtx context.Context, stat *gocore.Stat, 
 
 	start = gocore.CurrentTime()
 	buffer := make([]byte, chainhash.HashSize)
-	bufferedReader := bufio.NewReaderSize(body, 1024*128)
+
+	// Use pooled bufio.Reader
+	bufferedReader := bufioReaderPool.Get().(*bufio.Reader)
+	bufferedReader.Reset(body)
+	defer func() {
+		bufferedReader.Reset(nil)
+		bufioReaderPool.Put(bufferedReader)
+	}()
 
 	u.logger.Debugf("[getSubtreeTxHashes][%s] processing subtree response into tx hashes", subtreeHash.String())
 
@@ -910,6 +927,15 @@ func (u *Server) getSubtreeTxHashes(spanCtx context.Context, stat *gocore.Stat, 
 	stat.NewStat("3. createTxHashes").AddTime(start)
 
 	u.logger.Debugf("[getSubtreeTxHashes][%s] done with subtree response", subtreeHash.String())
+
+	// TODO: Report successful subtree fetch to improve peer reputation
+	// Cannot call ReportValidSubtree here because we don't have peer ID, only baseURL (HTTP URL)
+	// Need to track peer ID through the call chain if we want to enable this
+	// if u.p2pClient != nil {
+	// 	if err := u.p2pClient.ReportValidSubtree(spanCtx, peerID, subtreeHash.String()); err != nil {
+	// 		u.logger.Warnf("[getSubtreeTxHashes][%s] failed to report valid subtree: %v", subtreeHash.String(), err)
+	// 	}
+	// }
 
 	return txHashes, nil
 }
@@ -1029,8 +1055,11 @@ func (u *Server) processMissingTransactions(ctx context.Context, subtreeHash cha
 						if isRunning {
 							// add tx to the orphanage
 							u.logger.Debugf("[validateSubtree][%s] transaction %s is missing parent, adding to orphanage", subtreeHash.String(), tx.TxIDChainHash().String())
-							u.orphanage.Set(*tx.TxIDChainHash(), tx)
-							addedToOrphanage.Add(1)
+							if u.orphanage.Set(*tx.TxIDChainHash(), tx) {
+								addedToOrphanage.Add(1)
+							} else {
+								u.logger.Warnf("[validateSubtree][%s] Failed to add transaction %s to orphanage - orphanage is full", subtreeHash.String(), tx.TxIDChainHash().String())
+							}
 						}
 					} else if errors.Is(err, errors.ErrTxInvalid) && !errors.Is(err, errors.ErrTxPolicy) {
 						// Report invalid subtree - contains truly invalid transaction
@@ -1201,6 +1230,15 @@ func (u *Server) getSubtreeMissingTxs(ctx context.Context, subtreeHash chainhash
 								} else {
 									u.logger.Infof("[validateSubtree][%s] stored subtree data from %s", subtreeHash.String(), url)
 									subtreeDataExists = true
+
+									// TODO: Report successful subtree data fetch to improve peer reputation
+									// Cannot call ReportValidSubtree here because we don't have peer ID, only baseURL (HTTP URL)
+									// Need to track peer ID through the call chain if we want to enable this
+									// if u.p2pClient != nil {
+									// 	if err := u.p2pClient.ReportValidSubtree(ctx, peerID, subtreeHash.String()); err != nil {
+									// 		u.logger.Warnf("[validateSubtree][%s] failed to report valid subtree: %v", subtreeHash.String(), err)
+									// 	}
+									// }
 								}
 							}
 						}
