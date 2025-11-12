@@ -3,6 +3,8 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
+// Package legacy implements a Bitcoin SV legacy protocol server that handles peer-to-peer communication
+// and blockchain synchronization using the traditional Bitcoin network protocol.
 package legacy
 
 import (
@@ -141,6 +143,15 @@ var _ net.Addr = simpleAddr{}
 
 // broadcastMsg provides the ability to house a bitcoin message to be broadcast
 // to all connected peers except specified excluded peers.
+//
+// This structure is used by the server's message broadcasting system to efficiently
+// distribute protocol messages (blocks, transactions, inventory announcements) to
+// multiple peers while allowing selective exclusion of specific peers.
+//
+// Fields:
+//   - message: The wire protocol message to broadcast (MsgBlock, MsgTx, MsgInv, etc.)
+//   - excludePeers: List of peers that should not receive this message, typically
+//     used to avoid sending a message back to the peer that originally sent it
 type broadcastMsg struct {
 	message      wire.Message
 	excludePeers []*serverPeer
@@ -2699,14 +2710,42 @@ func newServer(ctx context.Context, logger ulogger.Logger, tSettings *settings.S
 	services &^= wire.SFNodeBloom
 	// cfg.NoCFilters
 	services &^= wire.SFNodeCF
-	// cfg.Prune
 
-	// We want to be able to advertise as full node, this should depend on determineNodeMode
-	// Requires https://github.com/bsv-blockchain/teranode/pull/50 to be merged
-	//services |= wire.SFNodeNetwork
+	// Determine node type (full vs pruned) based on block persister status
+	// This uses the same logic as the P2P service to ensure consistent advertising
+	var bestHeight uint32
+	var blockPersisterHeight uint32
 
-	services &^= wire.SFNodeNetwork
-	services |= wire.SFNodeNetworkLimited
+	// Get current best height and block persister height
+	if blockchainClient != nil {
+		if _, bestBlockMeta, err := blockchainClient.GetBestBlockHeader(ctx); err == nil && bestBlockMeta != nil {
+			bestHeight = bestBlockMeta.Height
+		}
+
+		// Query block persister height from blockchain state
+		if stateData, err := blockchainClient.GetState(ctx, "BlockPersisterHeight"); err == nil && len(stateData) >= 4 {
+			blockPersisterHeight = binary.LittleEndian.Uint32(stateData)
+		}
+	}
+
+	retentionWindow := uint32(0)
+	if tSettings.GlobalBlockHeightRetention > 0 {
+		retentionWindow = tSettings.GlobalBlockHeightRetention
+	}
+
+	storage := util.DetermineStorageMode(blockPersisterHeight, bestHeight, retentionWindow)
+	logger.Infof("Legacy service determined storage mode: %s (persisterHeight=%d, bestHeight=%d, retention=%d)",
+		storage, blockPersisterHeight, bestHeight, retentionWindow)
+
+	if storage == "full" {
+		// Advertise as full node
+		services |= wire.SFNodeNetwork
+		services &^= wire.SFNodeNetworkLimited
+	} else {
+		// Advertise as pruned node
+		services &^= wire.SFNodeNetwork
+		services |= wire.SFNodeNetworkLimited
+	}
 
 	peersDir := cfg.DataDir
 	if !tSettings.Legacy.SavePeers {
