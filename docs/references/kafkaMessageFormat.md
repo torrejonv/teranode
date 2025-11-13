@@ -243,7 +243,7 @@ func handleBlockMessage(msg *kafka.Message) error {
 
 ### Invalid Block Topic
 
-`kafka_invalidBlockConfig` is the Kafka topic used for broadcasting invalid block notifications. This topic allows services to notify other components when a block has been determined to be invalid.
+`kafka_invalidBlocksConfig` is the Kafka topic used for broadcasting invalid block notifications. This topic allows services to notify other components when a block has been determined to be invalid.
 
 ### Message Structure
 
@@ -356,6 +356,7 @@ The subtree notification message is defined in protobuf as `KafkaSubtreeTopicMes
 message KafkaSubtreeTopicMessage {
   string hash = 1;  // Subtree hash (as hex string)
   string URL = 2;  // URL pointing to subtree data
+  string peer_id = 3;  // Originator peer ID
 }
 ```
 
@@ -373,6 +374,12 @@ message KafkaSubtreeTopicMessage {
 - Description: URL pointing to the location where the full subtree data can be retrieved
 - Required: Yes
 
+#### peer_id
+
+- Type: string
+- Description: P2P peer identifier of the originator peer
+- Required: Yes
+
 ### Example
 
 Here's a JSON representation of the message content (for illustration purposes only; actual messages are protobuf-encoded):
@@ -380,7 +387,8 @@ Here's a JSON representation of the message content (for illustration purposes o
 ```json
 {
   "hash": "45a2b856743012ce25a4dabddd5f5bdf534c27c9347b34862bca5a14176d07",
-  "URL": "https://datahub.example.com/subtrees/123"
+  "URL": "https://datahub.example.com/subtrees/123",
+  "peer_id": "peer_12345"
 }
 ```
 
@@ -395,8 +403,9 @@ dataHubUrl := "https://datahub.example.com/subtrees/123"
 
 // Create a new protobuf message
 message := &kafkamessage.KafkaSubtreeTopicMessage{
-    Hash: subtreeHash.String(), // convert the hash to a string
-    URL:  dataHubUrl,
+    Hash:   subtreeHash.String(), // convert the hash to a string
+    URL:    dataHubUrl,
+    PeerId: "peer_12345", // Originator peer identifier
 }
 
 // Serialize to protobuf format
@@ -432,11 +441,12 @@ func handleSubtreeMessage(msg *kafka.Message) error {
         return fmt.Errorf("invalid subtree hash: %w", err)
     }
 
-    // Extract DataHub URL
+    // Extract DataHub URL and peer ID
     dataHubUrl := subtreeMessage.URL
+    peerID := subtreeMessage.PeerId
 
     // Process the subtree notification...
-    log.Printf("Received subtree notification for %s, data at: %s", subtreeHash.String(), dataHubUrl)
+    log.Printf("Received subtree notification for %s from peer %s, data at: %s", subtreeHash.String(), peerID, dataHubUrl)
     return nil
 }
 ```
@@ -453,7 +463,7 @@ func handleSubtreeMessage(msg *kafka.Message) error {
 
 ### Invalid Subtree Topic
 
-`kafka_invalidSubtreeConfig` is the Kafka topic used for broadcasting invalid subtree notifications. This topic allows services to notify other components when a subtree has been determined to be invalid.
+`kafka_invalidSubtreesConfig` is the Kafka topic used for broadcasting invalid subtree notifications. This topic allows services to notify other components when a subtree has been determined to be invalid.
 
 ### Message Structure
 
@@ -928,7 +938,8 @@ The rejected transaction message is defined in protobuf as `KafkaRejectedTxTopic
 ```protobuf
 message KafkaRejectedTxTopicMessage {
   string txHash = 1;  // Transaction hash (as hex string)
-  string reason = 2; // Rejection reason
+  string reason = 2;  // Rejection reason
+  string peer_id = 3; // Empty = internal rejection, non-empty = external peer
 }
 ```
 
@@ -947,6 +958,13 @@ message KafkaRejectedTxTopicMessage {
 - Description: Human-readable description of why the transaction was rejected
 - Required: Yes
 
+#### peer_id
+
+- Type: string
+- Description: P2P peer identifier. Empty string indicates internal rejection (by validator), non-empty indicates rejection from external peer
+- Required: Yes
+- Example: `""` (internal rejection) or `"peer_12345"` (external peer rejection)
+
 ### Example
 
 Here's a JSON representation of the message content (for illustration purposes only; actual messages are protobuf-encoded):
@@ -954,7 +972,8 @@ Here's a JSON representation of the message content (for illustration purposes o
 ```json
 {
   "txHash": "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
-  "reason": "Insufficient fee for transaction size"
+  "reason": "Insufficient fee for transaction size",
+  "peer_id": ""
 }
 ```
 
@@ -971,6 +990,7 @@ reasonStr := "Insufficient fee for transaction size"
 message := &kafkamessage.KafkaRejectedTxTopicMessage{
     TxHash: txHash,
     Reason: reasonStr,
+    PeerId: "", // Empty peer_id indicates internal rejection
 }
 
 // Serialize to protobuf format
@@ -1000,9 +1020,10 @@ func handleRejectedTxMessage(msg *kafka.Message) error {
         return fmt.Errorf("failed to deserialize rejected transaction message: %w", err)
     }
 
-    // Extract transaction hash and reason
+    // Extract transaction hash, reason, and peer ID
     txHashStr := rejectedTxMessage.TxHash
     reason := rejectedTxMessage.Reason
+    peerID := rejectedTxMessage.PeerId
 
     // Convert hex string to chainhash.Hash if needed
     txHash, err := chainhash.NewHashFromStr(txHashStr)
@@ -1010,8 +1031,14 @@ func handleRejectedTxMessage(msg *kafka.Message) error {
         return fmt.Errorf("invalid transaction hash: %w", err)
     }
 
+    // Determine rejection source
+    rejectionSource := "internally"
+    if peerID != "" {
+        rejectionSource = fmt.Sprintf("by peer %s", peerID)
+    }
+
     // Process the rejected transaction notification...
-    log.Printf("Transaction %s was rejected: %s", txHash.String(), reason)
+    log.Printf("Transaction %s was rejected %s: %s", txHash.String(), rejectionSource, reason)
     return nil
 }
 ```
@@ -1362,7 +1389,7 @@ Here's a general example of how to serialize a protobuf message for Kafka:
 ```go
 // Create a new message
 message := &kafkamessage.KafkaBlockTopicMessage{
-    Hash: blockHash[:],
+    Hash: blockHash.String(), // convert hash to hex string
     URL:  datahubUrl,
 }
 
@@ -1396,9 +1423,11 @@ func handleBlockMessage(msg *kafka.Message) error {
         return fmt.Errorf("failed to deserialize message: %w", err)
     }
 
-    // Extract block hash
-    var blockHash chainhash.Hash
-    copy(blockHash[:], blockMessage.Hash)
+    // Convert string hash to chainhash.Hash
+    blockHash, err := chainhash.NewHashFromStr(blockMessage.Hash)
+    if err != nil {
+        return fmt.Errorf("invalid block hash: %w", err)
+    }
 
     // Extract DataHub URL
     dataHubUrl := blockMessage.URL

@@ -6,89 +6,113 @@ The Teranode project is structured as follows:
 teranode/
 │
 ├── main.go                       # Entry point to start the services
+├── main_test.go                  # Top-level integration tests
 │
-├── Makefile                      # Facilitates a variety of development and build tasks for the project
+├── Makefile                      # Build, test, and development task automation
+│
+├── go.mod                        # Go module definition and dependencies
+├── go.sum                        # Go module checksums for dependency verification
 │
 ├── settings.conf                 # Global settings with sensible defaults for all environments
-│
 ├── settings_local.conf           # Developer-specific and deployment-specific settings. Overrides settings.conf. Not tracked in source control.
 │
+├── README.md                     # Project overview and getting started guide
+├── CLAUDE.md                     # AI assistant (Claude Code) instructions for the project
+├── LICENSE                       # Project license
+├── CODE_OF_CONDUCT.md            # Community code of conduct
+├── CONTRIBUTING.md               # Contribution guidelines
+├── GOVERNANCE.md                 # Project governance structure
+├── RESPONSIBILITIES.md           # Team roles and responsibilities
+│
 ├── Dockerfile                    # Main Dockerfile for containerization
-├── docker-compose.yml            # Docker Compose configuration
+├── .markdownlint.yml             # Markdown linting rules configuration
+├── mkdocs.yml                    # MkDocs documentation site configuration
+├── sonar-project.properties      # SonarQube code quality analysis configuration
+├── staticcheck.conf              # Go static analysis tool configuration
 │
-├── cmd/                          # Directory containing command-line tools and utilities
-│   ├── aerospikereader/          # Command related to Aerospike reader functionality
-│   ├── bitcointoutxoset/         # Bitcoin to UTXO set utility
-│   ├── checkblocktemplate/       # Tool to check block templates
-│   ├── filereader/               # Utility for reading files
-│   ├── getfsmstate/              # Tool to get FSM state
-│   ├── keygen/                   # Key generation utility
-│   ├── keypairgen/               # Key pair generation utility
-│   ├── peercli/                  # Peer network command-line interface
-│   ├── seeder/                   # Seeder functionality
-│   ├── setfsmstate/              # Tool to set FSM state
-│   ├── settings/                 # Settings management tools
-│   ├── teranode/                 # Teranode main executable
-│   ├── teranodecli/              # Teranode command-line interface
-│   └── utxopersister/            # UTXO persistence utility
+├── cmd/                          # Command-line tools, utilities, and library packages
+│   ├── aerospikereader/          # Tool for reading data from Aerospike database
+│   ├── bitcointoutxoset/         # Utility to convert Bitcoin blockchain data to UTXO set
+│   ├── checkblock/               # Package for validating blocks already added to the blockchain
+│   ├── checkblocktemplate/       # Tool to validate block templates before mining
+│   ├── filereader/               # Utility for reading blockchain data files
+│   ├── getfsmstate/              # Tool to retrieve current Finite State Machine state
+│   ├── keygen/                   # Cryptographic key generation utility
+│   ├── keypairgen/               # Public/private key pair generation utility
+│   ├── peercli/                  # Peer network command-line interface for P2P operations
+│   ├── seeder/                   # DNS seeder for peer discovery
+│   ├── setfsmstate/              # Tool to manually set Finite State Machine state
+│   ├── settings/                 # Settings management and validation tools
+│   ├── teranode/                 # Main Teranode daemon entry point
+│   ├── teranodecli/              # Teranode command-line interface for node management
+│   ├── utxopersister/            # UTXO persistence and management utility
+│   └── utxovalidator/            # Package for UTXO validation operations
 │
-├── services/                     # Core service implementations
-│   ├── alert/                    # Alert service
-│   ├── asset/                    # Asset service
-│   ├── blockassembly/            # Block assembly service
-│   ├── blockchain/               # Blockchain service
-│   ├── blockpersister/           # Block persister service
-│   ├── blockvalidation/          # Block validation service
-│   ├── legacy/                   # Legacy services
-│   ├── p2p/                      # Peer-to-peer networking service
-│   ├── propagation/              # Transaction propagation service
-│   ├── rpc/                      # RPC service
-│   ├── subtreevalidation/        # Subtree validation service
-│   ├── utxopersister/            # UTXO persister service
-│   └── validator/                # Transaction validator service
+├── services/                     # Core microservice implementations
+│   ├── alert/                    # Network alert broadcasting and handling service
+│   ├── asset/                    # HTTP/WebSocket API server for external client access to blockchain data
+│   ├── blockassembly/            # Block assembly service for mining operations
+│   ├── blockchain/               # Blockchain state management through Finite State Machine (FSM)
+│   ├── blockpersister/           # Service for persisting blocks to storage backends
+│   ├── blockvalidation/          # Block validation service for consensus rule enforcement
+│   ├── legacy/                   # Legacy Bitcoin protocol compatibility services
+│   ├── p2p/                      # Peer-to-peer networking protocol implementation
+│   ├── propagation/              # Transaction propagation service (gRPC/UDP/HTTP)
+│   ├── rpc/                      # Bitcoin-compatible JSON-RPC interface
+│   ├── subtreevalidation/        # Merkle subtree validation service for UTXO verification
+│   ├── utxopersister/            # UTXO set persistence service
+│   └── validator/                # Transaction validation service against consensus rules
 │
-├── stores/                       # Data storage implementations
-│   ├── blob/                     # Blob storage implementation
-│   ├── blockchain/               # Blockchain storage implementation
-│   ├── cleanup/                  # Cleanup storage utilities
-│   ├── txmetacache/             # Transaction metadata cache implementation
-│   └── utxo/                     # UTXO storage implementation
+├── stores/                       # Data storage layer implementations
+│   ├── blob/                     # Binary large object storage (transactions, subtrees) - S3/filesystem/HTTP backends
+│   ├── blockchain/               # Blockchain data storage (block headers, chain state) - PostgreSQL/SQLite backends
+│   ├── cleanup/                  # Storage cleanup and maintenance utilities
+│   ├── txmetacache/             # Transaction metadata caching layer for performance optimization
+│   └── utxo/                     # UTXO storage implementation - Aerospike/SQL backends
 │
-├── docs/                         # Documentation for the project
-│   ├── architecture/             # Architectural diagrams
-│   ├── references/               # Reference documentation
-│   │   ├── protobuf_docs/        # Protobuf API documentation
-│   │   ├── services/            # Service reference documentation
-│   │   ├── stores/              # Store reference documentation
-│   │   └── kafkaMessageFormat.md # Kafka message format documentation
-│   └── images/                   # Documentation images
+├── docs/                         # Project documentation
+│   ├── howto/                    # How-to guides and practical tutorials
+│   ├── misc/                     # Miscellaneous documentation and notes
+│   ├── overrides/                # MkDocs theme overrides and customizations
+│   ├── references/               # Technical reference documentation
+│   │   ├── img/                  # Images for reference documentation
+│   │   ├── open-rpc/             # OpenRPC API specifications
+│   │   ├── protobuf_docs/        # Generated Protobuf API documentation
+│   │   ├── services/             # Individual service reference documentation
+│   │   ├── settings/             # Settings configuration reference files
+│   │   ├── stores/               # Storage layer reference documentation
+│   │   ├── kafkaMessageFormat.md # Kafka message format specifications
+│   │   ├── projectStructure.md  # This file - project structure overview
+│   │   └── [other reference docs] # Additional reference materials
+│   ├── sharding/                 # Sharding architecture and implementation documentation
+│   ├── staging/                  # Draft documentation and work-in-progress content
+│   ├── topics/                   # Topic-based documentation and deep dives
+│   └── tutorials/                # Step-by-step tutorials and learning guides
 │
-├── compose/                      # Docker compose configurations
+├── compose/                      # Docker Compose configurations for different deployment scenarios
 │
-├── daemon/                       # Daemon implementation
+├── daemon/                       # Daemon process management and lifecycle implementation
 │
-├── deploy/                       # Deployment configurations and scripts
+├── deploy/                       # Deployment configurations, scripts, and infrastructure-as-code
 │
-├── errors/                       # Error handling and definitions
+├── errors/                       # Centralized error handling, definitions, and error types
 │
-├── interfaces/                   # Interface definitions
+├── interfaces/                   # Go interface definitions for service contracts and abstractions
 │
-├── model/                        # Data models
+├── model/                        # Core data models, structures, and domain objects
 │
-├── pkg/                          # Reusable packages
+├── pkg/                          # Reusable packages and shared libraries
 │
-├── scripts/                      # Various utility scripts
+├── scripts/                      # Utility scripts for development, testing, and automation
 │
-├── settings/                     # Settings management implementation
+├── settings/                     # Settings management implementation and configuration parsing
 │
-├── test/                         # Test utilities and integration tests
+├── test/                         # Test utilities, integration tests, and test infrastructure
 │
 ├── ui/                           # User interface components
-│   └── dashboard/                # Teranode Dashboard UI
+│   └── dashboard/                # Teranode Dashboard UI (Svelte-based web interface)
 │
-├── ulogger/                      # Unified logging implementation
+├── ulogger/                      # Unified logging framework implementation
 │
-├── util/                         # Common utilities
-│
-└── venv/                         # Python virtual environment (local development)
+└── util/                         # Common utility functions and helper packages
 ```
