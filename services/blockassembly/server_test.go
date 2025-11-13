@@ -149,7 +149,8 @@ func TestGetBlockAssemblyBlockCandidate(t *testing.T) {
 		err := server.blockAssembler.Start(t.Context())
 		require.NoError(t, err)
 
-		server.blockAssembler.bestBlockHeight.Store(250) // halvings = 150
+		currentHeader, _ := server.blockAssembler.CurrentBlock()
+		server.blockAssembler.setBestBlockHeader(currentHeader, 250) // halvings = 150
 
 		resp, err := server.GetBlockAssemblyBlockCandidate(t.Context(), &blockassembly_api.EmptyMessage{})
 		require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestGetBlockAssemblyBlockCandidate(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := uint64(0); i < 10; i++ {
-			server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+			server.blockAssembler.AddTx(subtreepkg.Node{
 				Hash:        chainhash.HashH([]byte(fmt.Sprintf("%d", i))),
 				Fee:         i,
 				SizeInBytes: i,
@@ -401,7 +402,7 @@ func TestTxCount(t *testing.T) {
 		// to avoid TxInpoints serialization issues
 		for i := 0; i < 3; i++ {
 			txHash := chainhash.HashH([]byte(fmt.Sprintf("tx-%d", i)))
-			server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+			server.blockAssembler.AddTx(subtreepkg.Node{
 				Hash:        txHash,
 				Fee:         uint64(100),
 				SizeInBytes: uint64(250),
@@ -424,7 +425,7 @@ func TestSubmitMiningSolution_InvalidBlock_HandlesReset(t *testing.T) {
 		// Add some transactions to create a mining candidate
 		for i := 0; i < 5; i++ {
 			txHash := chainhash.HashH([]byte(fmt.Sprintf("tx%d", i)))
-			server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+			server.blockAssembler.AddTx(subtreepkg.Node{
 				Hash:        txHash,
 				Fee:         uint64(100),
 				SizeInBytes: uint64(250),
@@ -1011,13 +1012,14 @@ func TestStartStopIntensive(t *testing.T) {
 		server, _ := setupServer(t)
 
 		readyCh := make(chan struct{})
+		errCh := make(chan error, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		// Start in goroutine since it blocks
-		var startErr error
 		go func() {
-			startErr = server.Start(ctx, readyCh)
+			err := server.Start(ctx, readyCh)
+			errCh <- err
 		}()
 
 		// Wait for ready signal or timeout
@@ -1032,8 +1034,8 @@ func TestStartStopIntensive(t *testing.T) {
 		// Cancel to stop the service
 		cancel()
 
-		// Give some time for cleanup
-		time.Sleep(100 * time.Millisecond)
+		// Wait for Start to complete and get the error
+		startErr := <-errCh
 
 		// Error is expected due to context cancellation
 		if startErr != nil {
@@ -1162,7 +1164,7 @@ func TestRemoveTxIntensive(t *testing.T) {
 
 		// First add a transaction
 		txHash := chainhash.HashH([]byte("test-tx-to-remove"))
-		server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+		server.blockAssembler.AddTx(subtreepkg.Node{
 			Hash:        txHash,
 			Fee:         100,
 			SizeInBytes: 250,
@@ -1310,7 +1312,7 @@ func TestGetMiningCandidateIntensive(t *testing.T) {
 		// Add some transactions to create subtrees
 		for i := 0; i < 5; i++ {
 			txHash := chainhash.HashH([]byte(fmt.Sprintf("mining-tx-%d", i)))
-			server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+			server.blockAssembler.AddTx(subtreepkg.Node{
 				Hash:        txHash,
 				Fee:         uint64(100),
 				SizeInBytes: uint64(250),
@@ -1818,7 +1820,7 @@ func TestRemoveTxEdgeCases(t *testing.T) {
 
 		// Add a transaction first
 		txHash := chainhash.HashH([]byte("test-tx-remove"))
-		server.blockAssembler.AddTx(subtreepkg.SubtreeNode{
+		server.blockAssembler.AddTx(subtreepkg.Node{
 			Hash:        txHash,
 			Fee:         100,
 			SizeInBytes: 250,

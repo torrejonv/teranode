@@ -189,6 +189,22 @@ Allowed Operations in Catching Blocks State:
 - ❌ Create subtrees (or propagate them)
 - ❌ Create blocks (mine candidates)
 
+##### Error Handling in Catching Blocks State
+
+When an error occurs during the catchup process, the FSM behavior has been updated to maintain state consistency:
+
+![fsm_catchup_error_handling.svg](img/plantuml/fsm_catchup_error_handling.svg)
+
+Key points about error handling:
+
+- **State Persistence**: When an error occurs during catchup (e.g., validation failure, network error), the FSM **remains** in the `CatchingBlocks` state
+- **No Automatic Reversion**: The FSM does **not** automatically revert to the `Running` state on error
+- **Explicit Recovery Required**: Recovery from errors requires either:
+    - Manual retry of the catchup process
+    - Automatic retry mechanism (if configured)
+    - Explicit state reset via operator intervention
+- **Consistency**: This behavior prevents inconsistent state transitions and ensures the node doesn't incorrectly resume normal operations while catchup is incomplete
+
 ### 3.4. State Machine Events
 
 #### 3.4.1. FSM Event: Legacy Sync
@@ -197,7 +213,7 @@ The gRPC `LegacySync` method triggers the FSM to transition to the `LegacySyncin
 
 The Legacy service triggers this event when the node is starting up and needs to perform a legacy sync.
 
-![fsm_legacy_sync.svg](img/plantuml/fsm_legacy_sync.svg)
+![fsm_legacy_symc.svg](img/plantuml/fsm_legacy_sync.svg)
 
 #### 3.4.2. FSM Event: Run
 
