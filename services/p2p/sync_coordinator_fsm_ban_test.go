@@ -17,9 +17,8 @@ func TestSyncCoordinator_FSMTransitionBansPeerAndUpdatesRegistry(t *testing.T) {
 	logger := ulogger.New("test")
 	settings := CreateTestSettings()
 	registry := NewPeerRegistry()
-	selector := NewPeerSelector(logger)
-	healthChecker := NewPeerHealthChecker(logger, registry, settings)
-	banManager := NewPeerBanManager(context.Background(), nil, settings)
+	selector := NewPeerSelector(logger, nil)
+	banManager := NewPeerBanManager(context.Background(), nil, settings, registry)
 	blockchainSetup := SetupTestBlockchain(t)
 	defer blockchainSetup.Cleanup()
 
@@ -28,7 +27,6 @@ func TestSyncCoordinator_FSMTransitionBansPeerAndUpdatesRegistry(t *testing.T) {
 		settings,
 		registry,
 		selector,
-		healthChecker,
 		banManager,
 		blockchainSetup.Client,
 		nil, // blocksKafkaProducerClient
@@ -36,19 +34,21 @@ func TestSyncCoordinator_FSMTransitionBansPeerAndUpdatesRegistry(t *testing.T) {
 
 	// Add a peer that will fail during catchup
 	failingPeer := peer.ID("failing-peer")
-	registry.AddPeer(failingPeer)
+	registry.AddPeer(failingPeer, "")
 	registry.UpdateHeight(failingPeer, 200, "hash200")
 	registry.UpdateDataHubURL(failingPeer, "http://failing.test")
-	registry.UpdateHealth(failingPeer, true)
+	registry.UpdateReputation(failingPeer, 80.0)
 	registry.UpdateURLResponsiveness(failingPeer, true)
+	registry.UpdateStorage(failingPeer, "full")
 
 	// Add an alternative peer
 	goodPeer := peer.ID("good-peer")
-	registry.AddPeer(goodPeer)
+	registry.AddPeer(goodPeer, "")
 	registry.UpdateHeight(goodPeer, 190, "hash190")
 	registry.UpdateDataHubURL(goodPeer, "http://good.test")
-	registry.UpdateHealth(goodPeer, true)
+	registry.UpdateReputation(goodPeer, 80.0)
 	registry.UpdateURLResponsiveness(goodPeer, true)
+	registry.UpdateStorage(goodPeer, "full")
 
 	// Set the failing peer as current sync peer
 	sc.mu.Lock()
@@ -91,9 +91,8 @@ func TestSyncCoordinator_BannedPeerNotReselected(t *testing.T) {
 	logger := ulogger.New("test")
 	settings := CreateTestSettings()
 	registry := NewPeerRegistry()
-	selector := NewPeerSelector(logger)
-	healthChecker := NewPeerHealthChecker(logger, registry, settings)
-	banManager := NewPeerBanManager(context.Background(), nil, settings)
+	selector := NewPeerSelector(logger, nil)
+	banManager := NewPeerBanManager(context.Background(), nil, settings, registry)
 	blockchainSetup := SetupTestBlockchain(t)
 	defer blockchainSetup.Cleanup()
 
@@ -102,7 +101,6 @@ func TestSyncCoordinator_BannedPeerNotReselected(t *testing.T) {
 		settings,
 		registry,
 		selector,
-		healthChecker,
 		banManager,
 		blockchainSetup.Client,
 		nil, // blocksKafkaProducerClient
@@ -110,11 +108,12 @@ func TestSyncCoordinator_BannedPeerNotReselected(t *testing.T) {
 
 	// Add a peer with highest height but it's banned
 	bannedPeer := peer.ID("banned-peer")
-	registry.AddPeer(bannedPeer)
+	registry.AddPeer(bannedPeer, "")
 	registry.UpdateHeight(bannedPeer, 300, "hash300")
 	registry.UpdateDataHubURL(bannedPeer, "http://banned.test")
-	registry.UpdateHealth(bannedPeer, true)
+	registry.UpdateReputation(bannedPeer, 80.0)
 	registry.UpdateURLResponsiveness(bannedPeer, true)
+	registry.UpdateStorage(bannedPeer, "full")
 
 	// Ban the peer
 	score, banned := banManager.AddScore(string(bannedPeer), ReasonInvalidBlock)
@@ -125,18 +124,20 @@ func TestSyncCoordinator_BannedPeerNotReselected(t *testing.T) {
 
 	// Add other peers with lower height
 	peer1 := peer.ID("peer1")
-	registry.AddPeer(peer1)
+	registry.AddPeer(peer1, "")
 	registry.UpdateHeight(peer1, 250, "hash250")
 	registry.UpdateDataHubURL(peer1, "http://peer1.test")
-	registry.UpdateHealth(peer1, true)
+	registry.UpdateReputation(peer1, 80.0)
 	registry.UpdateURLResponsiveness(peer1, true)
+	registry.UpdateStorage(peer1, "full")
 
 	peer2 := peer.ID("peer2")
-	registry.AddPeer(peer2)
+	registry.AddPeer(peer2, "")
 	registry.UpdateHeight(peer2, 240, "hash240")
 	registry.UpdateDataHubURL(peer2, "http://peer2.test")
-	registry.UpdateHealth(peer2, true)
+	registry.UpdateReputation(peer2, 80.0)
 	registry.UpdateURLResponsiveness(peer2, true)
+	registry.UpdateStorage(peer2, "full")
 
 	// Set local height
 	sc.SetGetLocalHeightCallback(func() uint32 { return 200 })

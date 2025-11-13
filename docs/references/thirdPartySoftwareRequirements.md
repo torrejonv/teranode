@@ -22,7 +22,10 @@
     - [What is Grafana?](#what-is-grafana)
     - [What is Prometheus?](#what-is-prometheus)
     - [Grafana and Prometheus in Teranode](#grafana-and-prometheus-in-teranode)
-- [Docker Compose](#docker-compose)
+- [Jaeger](#jaeger)
+    - [What is Jaeger?](#what-is-jaeger)
+    - [Jaeger in Teranode](#jaeger-in-teranode)
+- [Additional Components](#additional-components)
 
 ## Introduction
 
@@ -43,6 +46,14 @@ To know more, please refer to the Kafka official site: <https://kafka.apache.org
 ### Kafka in BSV Teranode
 
 In BSV Teranode, Kafka serves as the event-driven messaging backbone for asynchronous communication between microservices. It enables services to process blockchain events independently and at scale.
+
+- **Transaction Processing**: `txmeta`, `validatortxs`, `rejectedtx` topics
+- **Block Processing**: `blocks`, `blocks-final`, `invalid-blocks` topics  
+- **Subtree Management**: `subtrees`, `invalid-subtrees` topics
+- **Legacy Support**: `legacy-inv` topic for Bitcoin protocol compatibility
+
+**Configuration**: See `settings/settings.go` for Kafka settings and `deploy/docker/base/docker-services.yml` for deployment configuration.
+
 
 **Kafka Topics Used:**
 
@@ -99,7 +110,16 @@ In Teranode, PostgreSQL is the primary backend for **Blockchain Storage**, stori
     - Chain tip information
     - Network parameters
 
-**Why PostgreSQL?**
+PostgreSQL serves as the primary **Blockchain Storage** backend for:
+
+- **Block Storage**: Complete block data, headers, and metadata
+- **Chain State Management**: Current blockchain state and chain tips
+- **Block Validation**: Validation results and chain reorganizations
+- **Transaction Indexing**: Efficient transaction data access
+
+**Note**: Also supports SQLite backend through the same SQL store interface.
+
+**Configuration**: See `stores/blockchain/sql/` for implementation details.
 
 - **ACID guarantees**: Critical for maintaining blockchain consistency during reorganizations
 - **Foreign key relationships**: Efficiently maintains parent-child block relationships
@@ -310,4 +330,64 @@ Multiple compose files are available for different scenarios:
 - `docker-compose-ss.yml`: Shared storage testing
 - `docker-compose-chainintegrity.yml`: Chain integrity testing
 
-Docker Compose provides a convenient, reproducible environment for development and testing without requiring manual installation of all third-party dependencies.
+Comprehensive monitoring and observability for Teranode:
+
+**Prometheus Metrics:**
+
+- Service metrics from each Teranode component
+- System metrics (CPU, memory, disk, network)
+- Database metrics (PostgreSQL, Aerospike)
+- Kafka metrics (throughput, lag, broker health)
+- Business metrics (transaction rates, block validation times)
+
+**Grafana Features:**
+
+- Pre-configured dashboards for key components
+- Real-time blockchain operations monitoring
+- Configurable alerting
+- Multi-node deployment support
+
+**Configuration**: See `deploy/docker/base/docker-services.yml` for setup and `deploy/docker/base/grafana_dashboards/` for dashboard definitions.
+
+
+## Jaeger
+
+### What is Jaeger?
+
+**Jaeger** is an open-source, distributed tracing system originally developed by Uber. It is used for monitoring and troubleshooting microservices-based distributed systems. Jaeger helps track requests as they flow through multiple services, providing insights into performance bottlenecks and system behavior.
+
+Key features include:
+
+- **Distributed Context Propagation**: Tracks requests across service boundaries
+- **Performance Monitoring**: Identifies slow operations and bottlenecks
+- **Root Cause Analysis**: Helps diagnose issues in complex distributed systems
+- **Service Dependency Analysis**: Visualizes service interactions and dependencies
+
+### Jaeger in Teranode
+
+Distributed tracing across Teranode's microservices architecture:
+
+**Tracing Capabilities:**
+
+- Service-to-service communication
+- Database operations (PostgreSQL, Aerospike)
+- Kafka message processing
+- Block processing pipeline
+- UTXO operations and transaction validation
+
+**Features**: OpenTelemetry integration, configurable sampling, web UI for trace analysis.
+
+**Configuration**: See `util/tracing/` for implementation and Docker compose files for deployment setup.
+
+
+## Additional Components
+
+**RedPanda Console**: Web-based Kafka management interface for topic management and message inspection.
+
+**Nginx Asset Cache**: HTTP caching layer for asset service responses with reverse proxy capabilities.
+
+**OpenTelemetry**: Observability framework used with Jaeger for comprehensive tracing.
+
+**Container Orchestration**: Docker Compose for development, Kubernetes for production deployments.
+
+**Configuration**: See respective Docker compose files and Kubernetes manifests in `deploy/` directory.

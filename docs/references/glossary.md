@@ -4,15 +4,15 @@
 
 **Aerospike**: A high-performance, distributed NoSQL database used in Teranode as the primary storage backend for the UTXO Store, providing low-latency access to unspent transaction outputs.
 
-**Asset Server**: An interface to various data stores, handling transactions, subtrees, blocks, block headers, and UTXOs.
+**Asset Service**: Provides HTTP and WebSocket APIs for blockchain data access, serving transactions, subtrees, blocks, block headers, and UTXOs.
 
 **Block**: A container of grouped subtrees, including a coinbase transaction and a header, forming the blockchain.
 
-**Block Assembly Service**: Responsible for assembling new blocks and adding them to the blockchain. It groups transactions into subtrees and creates mining candidates.
+**Block Assembly Service**: Manages block creation including transaction selection, block template generation, and mining integration.
 
 **Block Header**: Metadata about a block containing the previous block hash, Merkle root, timestamp, difficulty target, and nonce. The block header is used to link blocks in the chain and provides the Proof-of-Work puzzle solution.
 
-**Block Persister Service**: An overlay microservice that post-processes blocks, decorating transactions with metadata and persisting them to separate storage.
+**Block Persister Service**: Persists blocks and related data (transactions, UTXOs, subtrees) to storage, ensuring data consistency.
 
 **Block Validation Service**: Ensures the integrity and consistency of each block before it's added to the blockchain.
 
@@ -26,7 +26,6 @@
 
 **Checkpoint**: A known valid block height used as a trust anchor for validation optimization. Blocks below checkpoints can use quick validation since they are known to be valid.
 
-**Coinbase Service**: A test-only service designed to split Coinbase UTXOs into smaller UTXOs and manage the spendability of miner rewards.
 
 **Coinbase Transaction**: The first transaction in a block that creates new coins as a reward for the miner.
 
@@ -101,3 +100,7 @@
 **UTXO Persister Service**: Creates and maintains an up-to-date Unspent Transaction Output (UTXO) file set for each block in the blockchain.
 
 **UTXO Store**: A datastore of UTXOs, tracking unspent transaction outputs that can be used as inputs in new transactions.
+
+**Validator Service**: Validates new transactions (using the Transaction Validator) and coordinates with the UTXO store for transaction processing.
+
+This glossary covers the main terms and components of the Teranode BSV system as described in the documentation you provided. It should help readers quickly reference and understand key concepts throughout the documentation.

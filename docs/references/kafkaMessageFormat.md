@@ -377,7 +377,7 @@ message KafkaSubtreeTopicMessage {
 #### peer_id
 
 - Type: string
-- Description: P2P peer identifier of the originator peer
+- Description: Originator peer identifier that created or provided this subtree
 - Required: Yes
 
 ### Example
@@ -388,7 +388,7 @@ Here's a JSON representation of the message content (for illustration purposes o
 {
   "hash": "45a2b856743012ce25a4dabddd5f5bdf534c27c9347b34862bca5a14176d07",
   "URL": "https://datahub.example.com/subtrees/123",
-  "peer_id": "peer_12345"
+  "peer_id": "peer_67890"
 }
 ```
 
@@ -403,9 +403,9 @@ dataHubUrl := "https://datahub.example.com/subtrees/123"
 
 // Create a new protobuf message
 message := &kafkamessage.KafkaSubtreeTopicMessage{
-    Hash:   subtreeHash.String(), // convert the hash to a string
-    URL:    dataHubUrl,
-    PeerId: "peer_12345", // Originator peer identifier
+    Hash: subtreeHash.String(), // convert the hash to a string
+    URL:  dataHubUrl,
+    PeerId: "peer_67890", // Originator peer identifier
 }
 
 // Serialize to protobuf format
@@ -938,8 +938,8 @@ The rejected transaction message is defined in protobuf as `KafkaRejectedTxTopic
 ```protobuf
 message KafkaRejectedTxTopicMessage {
   string txHash = 1;  // Transaction hash (as hex string)
-  string reason = 2;  // Rejection reason
-  string peer_id = 3; // Empty = internal rejection, non-empty = external peer
+  string reason = 2; // Rejection reason
+  string peer_id = 3;  // Empty = internal rejection, non-empty = external peer
 }
 ```
 
@@ -961,9 +961,8 @@ message KafkaRejectedTxTopicMessage {
 #### peer_id
 
 - Type: string
-- Description: P2P peer identifier. Empty string indicates internal rejection (by validator), non-empty indicates rejection from external peer
-- Required: Yes
-- Example: `""` (internal rejection) or `"peer_12345"` (external peer rejection)
+- Description: Peer identifier indicating the source of the rejection. Empty string indicates internal rejection, non-empty indicates rejection from an external peer
+- Required: No (can be empty)
 
 ### Example
 
@@ -990,7 +989,7 @@ reasonStr := "Insufficient fee for transaction size"
 message := &kafkamessage.KafkaRejectedTxTopicMessage{
     TxHash: txHash,
     Reason: reasonStr,
-    PeerId: "", // Empty peer_id indicates internal rejection
+    PeerId: "", // Empty string indicates internal rejection
 }
 
 // Serialize to protobuf format
@@ -1038,7 +1037,11 @@ func handleRejectedTxMessage(msg *kafka.Message) error {
     }
 
     // Process the rejected transaction notification...
-    log.Printf("Transaction %s was rejected %s: %s", txHash.String(), rejectionSource, reason)
+    if peerID == "" {
+        log.Printf("Transaction %s was rejected internally: %s", txHash.String(), reason)
+    } else {
+        log.Printf("Transaction %s was rejected by peer %s: %s", txHash.String(), peerID, reason)
+    }
     return nil
 }
 ```
