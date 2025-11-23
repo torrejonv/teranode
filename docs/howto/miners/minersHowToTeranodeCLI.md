@@ -15,6 +15,7 @@ docker exec -it blockchain teranode-cli
 Usage: teranode-cli <command> [options]
 
     Available Commands:
+    aerospikekafkaconnector  Read Aerospike CDC from Kafka and filter by txID bin
     aerospikereader      Aerospike Reader
     bitcointoutxoset     Bitcoin to Utxoset
     checkblock           Check block - fetches a block and validates it using the block validation service
@@ -45,9 +46,14 @@ Usage: teranode-cli <command> [options]
 
 ### Data Management
 
-| Command            | Description                          | Key Options                                   |
-|--------------------|--------------------------------------|-----------------------------------------------|
-| `aerospikereader`  | Read transaction data from Aerospike | `<txid>` - Transaction ID to lookup           |
+| Command                    | Description                                  | Key Options                                   |
+|----------------------------|----------------------------------------------|-----------------------------------------------|
+| `aerospikekafkaconnector`  | Read Aerospike CDC from Kafka                | `--kafka-url` - Kafka broker URL (required)   |
+|                            |                                              | `--txid` - Filter by transaction ID           |
+|                            |                                              | `--namespace` - Filter by namespace           |
+|                            |                                              | `--set` - Filter by set (default: txmeta)     |
+|                            |                                              | `--stats-interval` - Stats interval (default: 30) |
+| `aerospikereader`          | Read transaction data from Aerospike         | `<txid>` - Transaction ID to lookup           |
 | `bitcointoutxoset` | Convert Bitcoin data to UTXO set     | `--bitcoinDir` - Location of bitcoin data     |
 |                    |                                      | `--outputDir` - Output directory for UTXO set |
 |                    |                                      | `--skipHeaders` - Skip processing headers     |
@@ -90,6 +96,22 @@ Usage: teranode-cli <command> [options]
 |                      |                                                | `--end-height` - Ending block height (default: 0 for tip)       |
 
 ## Detailed Command Reference
+
+### Aerospike Kafka Connector
+
+```bash
+teranode-cli aerospikekafkaconnector --kafka-url=<kafka-url> [options]
+```
+
+Reads Aerospike CDC (Change Data Capture) from Kafka and filters by transaction ID.
+
+Options:
+
+- `--kafka-url`: Kafka broker URL (required, e.g., kafka://localhost:9092/aerospike-cdc)
+- `--txid`: Filter by 64-character hex transaction ID (optional)
+- `--namespace`: Filter by Aerospike namespace (optional)
+- `--set`: Filter by Aerospike set (default: txmeta)
+- `--stats-interval`: Statistics logging interval in seconds (default: 30)
 
 ### Aerospike Reader
 
