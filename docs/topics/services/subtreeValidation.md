@@ -4,9 +4,11 @@
 
 1. [Description](#1-description)
 2. [Functionality](#2-functionality)
-    - [2.1. Receiving UTXOs and warming up the TXMeta Cache](#21-receiving-utxos-and-warming-up-the-txmeta-cache)
-    - [2.2. Receiving subtrees for validation](#22-receiving-subtrees-for-validation)
-    - [2.3. Validating the Subtrees](#23-validating-the-subtrees)
+    - [2.1. Validator Integration](#21-validator-integration)
+    - [2.2. Receiving UTXOs and warming up the TXMeta Cache](#22-receiving-utxos-and-warming-up-the-txmeta-cache)
+    - [2.3. Receiving subtrees for validation](#23-receiving-subtrees-for-validation)
+    - [2.4. Validating the Subtrees](#24-validating-the-subtrees)
+    - [2.5. Subtree Locking Mechanism](#25-subtree-locking-mechanism)
 3. [gRPC Protobuf Definitions](#3-grpc-protobuf-definitions)
 4. [Data Model](#4-data-model)
 5. [Technology](#5-technology)
@@ -37,7 +39,7 @@ The Subtree Validation Service:
 - Validates the subtrees, after fetching them from the remote asset server.
 - Decorates the subtrees with additional metadata, and stores them in the Subtree Store.
 
-The P2P Service communicates with the Block Validation over either gRPC protocols.
+The P2P Service communicates with the Subtree Validation Service over the gRPC protocol.
 
 ![Subtree_Validation_Service_Component_Diagram.png](img/Subtree_Validation_Service_Component_Diagram.png)
 
@@ -45,7 +47,19 @@ The detailed component diagram below shows the internal architecture of the Subt
 
 ![Subtree_Validation_Component](img/plantuml/subtreevalidation/Subtree_Validation_Component.svg)
 
-### 1.1 Validator Integration
+> **Note**: For information about how the Subtree Validation service is initialized during daemon startup and how it interacts with other services, see the [Teranode Daemon Reference](../../references/teranodeDaemonReference.md#service-initialization-flow).
+
+Finally, note that the Subtree Validation service benefits of the use of Lustre Fs (filesystem). Lustre is a type of parallel distributed file system, primarily used for large-scale cluster computing. This filesystem is designed to support high-performance, large-scale data storage and workloads.
+Specifically for Teranode, these volumes are meant to be temporary holding locations for short-lived file-based data that needs to be shared quickly between various services
+Teranode microservices make use of the Lustre file system in order to share subtree and tx data, eliminating the need for redundant propagation of subtrees over grpc or message queues. The services sharing Subtree data through this system can be seen here:
+
+![lustre_fs.svg](img/plantuml/lustre_fs.svg)
+
+## 2. Functionality
+
+The subtree validator is a service that validates subtrees. After validating them, it will update the relevant stores accordingly.
+
+### 2.1. Validator Integration
 
 The Subtree Validation service interacts with the Validator service to validate transactions that might be missing during subtree processing. This interaction can happen in two different configurations:
 
@@ -65,31 +79,29 @@ The Subtree Validation service interacts with the Validator service to validate 
 
 This configuration is controlled by the settings passed to `GetValidatorClient()` in daemon.go.
 
-To improve performance, the Subtree Validation Service uses a caching mechanism for UTXO meta data (called `TX Meta Cache` for historical reasons). This prevents repeated fetch calls to the store by retaining recently loaded transactions in memory (for a limited time). This can be enabled or disabled via the `subtreevalidation_txMetaCacheEnabled` setting. The caching mechanism is implemented in the `txmetacache` package, and is used by the Subtree Validation Service:
+> **Note**: For detailed information about how services are initialized and connected during daemon startup, see the [Teranode Daemon Reference](../../references/teranodeDaemonReference.md#service-initialization-flow).
+
+To improve performance, the Subtree Validation Service uses a caching mechanism for UTXO meta data (called `TX Meta Cache` for historical reasons). This prevents repeated fetch calls to the store by retaining recently loaded transactions in memory (for a limited time). This can be enabled or disabled via the `subtreevalidation_txMetaCacheEnabled` setting (Type: `bool`, Default: `true`, Impact: Significantly affects performance and memory usage patterns). The caching mechanism is implemented in the `txmetacache` package, and is used by the Subtree Validation Service:
 
 ```go
- // create a caching tx meta store
-    if gocore.Config().GetBool("subtreevalidation_txMetaCacheEnabled", true) {
-        logger.Infof("Using cached version of tx meta store")
-        u.utxoStore = txmetacache.NewTxMetaCache(ctx, ulogger.TestLogger{}, utxoStore)
-    } else {
-        u.utxoStore = utxoStore
+// create a caching tx meta store
+if tSettings.SubtreeValidation.TxMetaCacheEnabled {
+    logger.Infof("Using cached version of tx meta store")
+
+    var err error
+
+    u.utxoStore, err = txmetacache.NewTxMetaCache(ctx, tSettings, logger, utxoStore, txmetacache.Unallocated)
+    if err != nil {
+        logger.Errorf("Failed to create tx meta cache: %v", err)
     }
+} else {
+    u.utxoStore = utxoStore
+}
 ```
 
 If this caching mechanism is enabled, the Subtree Validation Service will listen to the `kafka_txmetaConfig` Kafka topic, where the Transaction Validator posts new UTXO meta data. This data is then stored in the cache for quick access during subtree validation.
 
-Finally, note that the Subtree Validation service benefits of the use of Lustre Fs (filesystem). Lustre is a type of parallel distributed file system, primarily used for large-scale cluster computing. This filesystem is designed to support high-performance, large-scale data storage and workloads.
-Specifically for Teranode, these volumes are meant to be temporary holding locations for short-lived file-based data that needs to be shared quickly between various services
-Teranode microservices make use of the Lustre file system in order to share subtree and tx data, eliminating the need for redundant propagation of subtrees over grpc or message queues. The services sharing Subtree data through this system can be seen here:
-
-![lustre_fs.svg](img/plantuml/lustre_fs.svg)
-
-## 2. Functionality
-
-The subtree validator is a service that validates subtrees. After validating them, it will update the relevant stores accordingly.
-
-### 2.1. Receiving UTXOs and warming up the TXMeta Cache
+### 2.2. Receiving UTXOs and warming up the TXMeta Cache
 
 - The TX Validator service processes and validates new transactions.
 - After validating transactions, The Tx Validator Service sends them (in UTXO Meta format) to the Subtree Validation Service via Kafka.
@@ -98,7 +110,7 @@ The subtree validator is a service that validates subtrees. After validating the
 
 ![tx_validation_subtree_validation.svg](img/plantuml/validator/tx_validation_subtree_validation.svg)
 
-### 2.2. Receiving subtrees for validation
+### 2.3. Receiving subtrees for validation
 
 - The P2P service is responsible for receiving new subtrees from the network. When a new subtree is found, it will notify the subtree validation service via the Kafka `kafka_subtreesConfig` producer.
 
@@ -116,7 +128,7 @@ In addition to the P2P Service, the Block Validation service can also request fo
 
 The detail of how the subtree is validated will be described in the next section.
 
-### 2.3. Validating the Subtrees
+### 2.4. Validating the Subtrees
 
 In the previous section, the process of validating a subtree was described. Here, we will go into more detail about the validation process.
 
@@ -134,7 +146,7 @@ The validation process is as follows:
     - If the tx metadata is not found in the UTXO store, the Validator will fetch the UTXO from the remote asset server.
     - If the tx is not found, the tx will be marked as invalid, and the subtree validation will fail.
 
-### 2.4. Subtree Locking Mechanism
+### 2.5. Subtree Locking Mechanism
 
 To prevent concurrent validation of the same subtree, the service implements a file-based locking mechanism:
 
@@ -147,7 +159,7 @@ The locking implementation is designed to be resilient across distributed system
 
 ## 3. gRPC Protobuf Definitions
 
-The Subtree Validation Service uses gRPC for communication between nodes. The protobuf definitions used for defining the service methods and message formats can be seen [here](../../references/protobuf_docs/subtreevalidationProto.md).
+The Subtree Validation Service uses gRPC for communication between nodes. The protobuf definitions used for defining the service methods and message formats can be seen in the [Subtree Validation protobuf documentation](../../references/protobuf_docs/subtreevalidationProto.md).
 
 ## 4. Data Model
 
@@ -163,23 +175,23 @@ The Subtree Validation Service uses gRPC for communication between nodes. The pr
 
     - Used for implementing server-client communication. gRPC is a high-performance, open-source framework that supports efficient communication between services.
 
-4. **Data Stores**:
+3. **Data Stores**:
 
     - Integration with various stores: blob store, and UTXO store.
 
-5. **Caching Mechanisms (ttlcache)**:
+4. **Caching Mechanisms (ttlcache)**:
 
     - Uses `ttlcache`, a Go library for in-memory caching with time-to-live settings, to avoid redundant processing and improve performance.
 
-6. **Configuration Management (gocore)**:
+5. **Configuration Management (gocore)**:
 
     - Uses `gocore` for configuration management, allowing dynamic configuration of service parameters.
 
-7. **Networking and Protocol Buffers**:
+6. **Networking and Protocol Buffers**:
 
     - Handles network communications and serializes structured data using Protocol Buffers, a language-neutral, platform-neutral, extensible mechanism for serializing structured data.
 
-8. **Synchronization Primitives (sync)**:
+7. **Synchronization Primitives (sync)**:
 
     - Utilizes Go's `sync` package for synchronization primitives like mutexes, aiding in managing concurrent access to shared resources.
 
