@@ -25,6 +25,7 @@ teranode/
 │   ├── getfsmstate/              # Tool to get FSM state
 │   ├── keygen/                   # Key generation utility
 │   ├── keypairgen/               # Key pair generation utility
+│   ├── monitor/                  # Monitoring utility
 │   ├── peercli/                  # Peer network command-line interface
 │   ├── resetblockassembly/       # Tool to reset block assembly state
 │   ├── seeder/                   # Seeder functionality
