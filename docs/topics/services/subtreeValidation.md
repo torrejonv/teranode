@@ -4,13 +4,14 @@
 
 1. [Description](#1-description)
 2. [Functionality](#2-functionality)
-    - [2.1. Receiving UTXOs and warming up the TXMeta Cache](#21-receiving-utxos-and-warming-up-the-txmeta-cache)
-    - [2.2. Receiving subtrees for validation](#22-receiving-subtrees-for-validation)
-    - [2.3. Validating the Subtrees](#23-validating-the-subtrees)
-    - [2.4. Subtree Locking Mechanism](#24-subtree-locking-mechanism)
-    - [2.5. Distributed Pause Mechanism](#25-distributed-pause-mechanism)
-    - [2.6. Orphanage Management](#26-orphanage-management)
-    - [2.7. Level Calculation for Merkle Trees](#27-level-calculation-for-merkle-trees)
+    - [2.1. Validator Integration](#21-validator-integration)
+    - [2.2. Receiving UTXOs and warming up the TXMeta Cache](#22-receiving-utxos-and-warming-up-the-txmeta-cache)
+    - [2.3. Receiving subtrees for validation](#23-receiving-subtrees-for-validation)
+    - [2.4. Validating the Subtrees](#24-validating-the-subtrees)
+    - [2.5. Subtree Locking Mechanism](#25-subtree-locking-mechanism)
+    - [2.6. Distributed Pause Mechanism](#26-distributed-pause-mechanism)
+    - [2.7. Orphanage Management](#27-orphanage-management)
+    - [2.8. Level Calculation for Merkle Trees](#28-level-calculation-for-merkle-trees)
 3. [gRPC Protobuf Definitions](#3-grpc-protobuf-definitions)
 4. [Data Model](#4-data-model)
 5. [Technology](#5-technology)
@@ -28,8 +29,9 @@ The Subtree Validator is responsible for ensuring the integrity and consistency 
 
 2. **Transaction Legitimacy**: Ensures all transactions within subtrees are valid, including checks for double-spending.
 
-3. **Decorates the Subtree with additional metadata**: Adds metadata to the subtree, to facilitate faster block validation at a later stage (by the Block Validation Service).
-    - Specifically, the subtree metadata will contain all of the transaction input outpoints ([TxInpoints](../datamodel/utxo_data_model.md#txinpoints-structure)). This decorated subtree can be validated and processed faster by the Block Validation Service, preventing unnecessary round trips to the UTXO Store.
+3. **Decorates the Subtree with additional metadata**
+
+    Adds metadata to the subtree, to facilitate faster block validation at a later stage (by the Block Validation Service). Specifically, the subtree metadata will contain all of the transaction input outpoints ([TxInpoints](../datamodel/utxo_data_model.md#txinpoints-structure)). This decorated subtree can be validated and processed faster by the Block Validation Service, preventing unnecessary round trips to the UTXO Store.
 
 > **Note**: For information about how the Subtree Validation service is initialized during daemon startup and how it interacts with other services, see the [Teranode Daemon Reference](../../references/teranodeDaemonReference.md#service-initialization-flow).
 
@@ -50,8 +52,6 @@ The detailed component diagram below shows the internal architecture of the Subt
 > **Note**: This diagram represents a simplified component view showing the main architectural elements. The gRPC Server routes requests to handlers (`subtreeHandler.go`, `txmetaHandler.go`) which orchestrate validation logic, file-based locking, transaction fetching via HTTP, and interactions with external services. Kafka consumers process notifications and route them to the appropriate handlers for processing.
 
 ![Subtree_Validation_Component](img/plantuml/subtreevalidation/Subtree_Validation_Component.svg)
-
-> **Note**: For information about how the Subtree Validation service is initialized during daemon startup and how it interacts with other services, see the [Teranode Daemon Reference](../../references/teranodeDaemonReference.md#service-initialization-flow).
 
 Finally, note that the Subtree Validation service benefits of the use of Lustre Fs (filesystem). Lustre is a type of parallel distributed file system, primarily used for large-scale cluster computing. This filesystem is designed to support high-performance, large-scale data storage and workloads.
 Specifically for Teranode, these volumes are meant to be temporary holding locations for short-lived file-based data that needs to be shared quickly between various services
@@ -161,7 +161,7 @@ To prevent concurrent validation of the same subtree, the service implements a f
 
 The locking implementation is designed to be resilient across distributed systems by leveraging the shared filesystem.
 
-### 2.5. Distributed Pause Mechanism
+### 2.6. Distributed Pause Mechanism
 
 The Subtree Validation service implements a distributed pause mechanism that coordinates pausing across multiple pods in a Kubernetes cluster. This mechanism is essential for preventing UTXO state conflicts during block validation.
 
@@ -169,14 +169,14 @@ The Subtree Validation service implements a distributed pause mechanism that coo
 
 **Key Features:**
 
-1. **Distributed Lock**: Uses a special lock file `__SUBTREE_PAUSE__.lock` in shared storage (quorum path)
-2. **Heartbeat Updates**: The lock file timestamp is updated every `timeout/2` seconds (default: 5 seconds) to indicate the pause is still active
-3. **Automatic Crash Recovery**: Stale locks (older than the configured timeout) are automatically detected and cleaned up
+1. **Distributed Lock** — Uses a special lock file `__SUBTREE_PAUSE__.lock` in shared storage (quorum path)
+2. **Heartbeat Updates** — The lock file timestamp is updated every `timeout/2` seconds (default: 5 seconds) to indicate the pause is still active
+3. **Automatic Crash Recovery** — Stale locks (older than the configured timeout) are automatically detected and cleaned up
 4. **Two-Level Checking**:
 
     - Fast local atomic boolean check (no I/O)
     - Reliable distributed lock check when local flag is false
-5. **Graceful Fallback**: Falls back to local-only pause if quorum is not initialized (for tests)
+5. **Graceful Fallback** — Falls back to local-only pause if quorum is not initialized (for tests)
 
 **How It Works:**
 
@@ -197,7 +197,7 @@ The distributed pause mechanism uses existing subtree validation settings:
 - `subtree_quorum_path`: Path to shared storage for lock files
 - `subtree_quorum_absolute_timeout`: Timeout for lock staleness (default: 30 seconds)
 
-### 2.6. Orphanage Management
+### 2.7. Orphanage Management
 
 The Subtree Validation service implements an orphanage mechanism to handle transactions that arrive before their parent transactions are available. This is essential for maintaining processing continuity when transactions arrive out of order.
 
@@ -210,10 +210,10 @@ A transaction becomes "orphaned" when:
 
 **Orphanage Workflow:**
 
-1. **Detection**: During subtree validation, if a transaction's inputs cannot be found, it's placed in the orphanage
-2. **Tracking**: The orphanage tracks which parent transaction IDs are needed
-3. **Resolution**: When parent transactions are processed, orphaned children are automatically resolved
-4. **Timeout**: Orphaned transactions that remain unresolved after the timeout period are cleaned up
+1. **Detection** — During subtree validation, if a transaction's inputs cannot be found, it's placed in the orphanage
+2. **Tracking** — The orphanage tracks which parent transaction IDs are needed
+3. **Resolution** — When parent transactions are processed, orphaned children are automatically resolved
+4. **Timeout** — Orphaned transactions that remain unresolved after the timeout period are cleaned up
 
 **Configuration:**
 
@@ -226,7 +226,7 @@ A transaction becomes "orphaned" when:
 - Maintains high throughput during burst traffic
 - Automatically recovers when parent transactions arrive
 
-### 2.7. Level Calculation for Merkle Trees
+### 2.8. Level Calculation for Merkle Trees
 
 The Subtree Validation service performs level calculation to optimize merkle tree processing. This feature improves performance by pre-calculating the hierarchical structure of subtrees.
 
@@ -240,16 +240,16 @@ Each subtree contains transactions organized in a merkle tree structure. Level c
 
 **How It Works:**
 
-1. **Tree Analysis**: The service analyzes the subtree structure to determine the total number of transactions
-2. **Level Computation**: Calculates the number of levels needed based on transaction count
-3. **Pre-allocation**: Allocates memory slices based on calculated level sizes
-4. **Optimized Processing**: Processes the subtree level by level for optimal memory usage
+1. **Tree Analysis** — The service analyzes the subtree structure to determine the total number of transactions
+2. **Level Computation** — Calculates the number of levels needed based on transaction count
+3. **Pre-allocation** — Allocates memory slices based on calculated level sizes
+4. **Optimized Processing** — Processes the subtree level by level for optimal memory usage
 
 **Benefits:**
 
-- **Memory Efficiency**: Pre-allocates exact memory needed, reducing allocations
-- **Performance**: Avoids repeated slice growth during processing
-- **Predictability**: Known memory requirements before processing begins
+- **Memory Efficiency** — Pre-allocates exact memory needed, reducing allocations
+- **Performance** — Avoids repeated slice growth during processing
+- **Predictability** — Known memory requirements before processing begins
 
 **Example:**
 
