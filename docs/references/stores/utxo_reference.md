@@ -6,6 +6,19 @@ The UTXO (Unspent Transaction Output) Store provides an interface for managing a
 
 ## Core Types
 
+### BlockState
+
+Represents an atomic snapshot of blockchain state containing both block height and median block time.
+
+```go
+type BlockState struct {
+    // Height is the current block height
+    Height uint32
+    // MedianTime is the median time of recent blocks
+    MedianTime uint32
+}
+```
+
 ### Spend
 
 Represents a UTXO being spent.
@@ -201,7 +214,7 @@ type Store interface {
     GetMeta(ctx context.Context, hash *chainhash.Hash) (*meta.Data, error)
 
     // Spend marks all the UTXOs of the transaction as spent.
-    Spend(ctx context.Context, tx *bt.Tx, ignoreFlags ...IgnoreFlags) ([]*Spend, error)
+    Spend(ctx context.Context, tx *bt.Tx, blockHeight uint32, ignoreFlags ...IgnoreFlags) ([]*Spend, error)
 
     // Unspend reverses a previous spend operation, marking UTXOs as unspent.
     // This is used during blockchain reorganizations.
@@ -259,6 +272,11 @@ type Store interface {
     // GetMedianBlockTime returns the current median block time from the store.
     GetMedianBlockTime() uint32
 
+    // GetBlockState returns an atomic snapshot of both block height and median block time.
+    // This prevents race conditions that could occur when reading these values separately,
+    // ensuring consistency during validation operations.
+    GetBlockState() BlockState
+
     // GetUnminedTxIterator returns an iterator for all unmined transactions in the store.
     // This is used by the Block Assembly service to recover transactions on startup.
     // The fullScan parameter determines whether to perform a full scan of all transactions.
@@ -274,9 +292,9 @@ type Store interface {
     PreserveTransactions(ctx context.Context, txIDs []chainhash.Hash, preserveUntilHeight uint32) error
 
     // ProcessExpiredPreservations handles transactions whose preservation period has expired.
+    // For each transaction with PreserveUntil <= currentHeight, it sets an appropriate DeleteAtHeight
+    // and clears the PreserveUntil field.
     ProcessExpiredPreservations(ctx context.Context, currentHeight uint32) error
-
-    // Note: Close method is not part of the Store interface in the current implementation
 }
 ```
 
@@ -287,7 +305,7 @@ type Store interface {
 - `Get`: Retrieves UTXO metadata for specific fields with field-level filtering.
 - `Delete`: Removes a UTXO entry and its associated metadata.
 - `GetSpend`: Retrieves information about a UTXO's spend status, including spending transaction data.
-- `Spend`: Marks UTXOs as spent by a transaction, with optional flags for handling conflicts.
+- `Spend`: Marks UTXOs as spent by a transaction at a specific block height, with optional flags for handling conflicts.
 - `Unspend`: Reverses spend operations during blockchain reorganization.
 - `BatchDecorate`: Efficiently fetches metadata for multiple transactions in a single operation.
 - `FreezeUTXOs`/`UnFreezeUTXOs`: Manages frozen status of UTXOs for the alert system.
@@ -298,7 +316,7 @@ type Store interface {
 - `PreviousOutputsDecorate`: Fetches information about transaction inputs' previous outputs from a transaction.
 - `ReAssignUTXO`: Reassigns a UTXO to a new transaction output with safety measures.
 - `GetCounterConflicting`/`GetConflictingChildren`: Manages conflict relationships between transactions.
-- `SetBlockHeight`/`GetBlockHeight`/`SetMedianBlockTime`/`GetMedianBlockTime`: Manages blockchain state.
+- `SetBlockHeight`/`GetBlockHeight`/`SetMedianBlockTime`/`GetMedianBlockTime`/`GetBlockState`: Manages blockchain state with atomic snapshot support.
 - `GetUnminedTxIterator`: Returns an iterator for efficiently accessing all unmined transactions.
 - `QueryOldUnminedTransactions`: Identifies unmined transactions older than a specified block height for cleanup.
 - `PreserveTransactions`: Protects transactions from deletion by setting a preservation period.
