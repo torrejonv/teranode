@@ -65,6 +65,8 @@ The service interacts with the storage system to read and write necessary files 
 
 The following diagram provides a deeper level of detail into the UTXO Persister Service's internal components and their interactions:
 
+> **Note**: This diagram represents a simplified component view showing the main architectural elements. The Server component orchestrates notification handling, block monitoring, and UTXO processing through its methods (`Start()`, `trigger()`, `processNextBlock()`), while the Consolidator is a temporary helper struct created during block range processing rather than a persistent service component.
+
 ![utxo_persister_detailed_component.svg](img/plantuml/utxopersister/utxo_persister_detailed_component.svg)
 
 ## 2. Functionality
@@ -291,7 +293,7 @@ The UTXO Persister service is located in the `services/utxopersister` directory.
 To run the UTXO Persister Service locally, you can execute the following command:
 
 ```shell
-SETTINGS_CONTEXT=dev.[YOUR_USERNAME] go run . -UTXOPersister=1
+SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] go run . -utxopersister=1
 ```
 
 Please refer to the [Locally Running Services Documentation](../../howto/locallyRunningServices.md) document for more information on running the UTXO Persister Service locally.

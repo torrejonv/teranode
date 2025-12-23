@@ -58,24 +58,43 @@ func (u *Server) persistBlock(ctx context.Context, hash *chainhash.Hash, blockBy
 	u.logger.Infof("[BlockPersister] Processing block %s (%d subtrees)...", block.Header.Hash().String(), len(block.Subtrees))
 
 	concurrency := u.settings.Block.BlockPersisterConcurrency
-	u.logger.Infof("[BlockPersister] Processing subtrees with concurrency %d", concurrency)
 
-	// Create a new UTXO diff
-	utxoDiff, err := utxopersister.NewUTXOSet(ctx, u.logger, u.settings, u.blockStore, block.Header.Hash(), block.Height)
-	if err != nil {
-		return errors.NewProcessingError("error creating utxo diff", err)
+	// In all-in-one mode, reduce concurrency to avoid resource starvation across multiple services
+	if u.settings.IsAllInOneMode {
+		concurrency = concurrency / 2
+		if concurrency < 1 {
+			concurrency = 1 // Ensure at least 1
+		}
+		u.logger.Infof("[BlockPersister] All-in-one mode detected: reducing concurrency to %d", concurrency)
 	}
 
-	defer func() {
-		if closeErr := utxoDiff.Close(); closeErr != nil {
-			u.logger.Warnf("[persistBlock] error closing utxoDiff during error cleanup: %v", closeErr)
+	u.logger.Infof("[BlockPersister] Processing subtrees with concurrency %d", concurrency)
+
+	// Only process UTXO files if enabled
+	var utxoDiff *utxopersister.UTXOSet
+	if u.settings.Block.BlockPersisterProcessUTXOFiles {
+		// Create a new UTXO diff
+		var err error
+		utxoDiff, err = utxopersister.NewUTXOSet(ctx, u.logger, u.settings, u.blockStore, block.Header.Hash(), block.Height)
+		if err != nil {
+			return errors.NewProcessingError("error creating utxo diff", err)
 		}
-	}()
+
+		defer func() {
+			if closeErr := utxoDiff.Close(); closeErr != nil {
+				u.logger.Warnf("[persistBlock] error closing utxoDiff during error cleanup: %v", closeErr)
+			}
+		}()
+	} else {
+		u.logger.Infof("[BlockPersister] UTXO file processing disabled - skipping utxo-additions and utxo-deletions files")
+	}
 
 	if len(block.Subtrees) == 0 {
 		// No subtrees to process, just write the coinbase UTXO to the diff and continue
-		if err := utxoDiff.ProcessTx(block.CoinbaseTx); err != nil {
-			return errors.NewProcessingError("error processing coinbase tx", err)
+		if utxoDiff != nil {
+			if err := utxoDiff.ProcessTx(block.CoinbaseTx); err != nil {
+				return errors.NewProcessingError("error processing coinbase tx", err)
+			}
 		}
 	} else {
 		g, gCtx := errgroup.WithContext(ctx)
