@@ -110,9 +110,8 @@ type BlockAssembler struct {
     // currentRunningState tracks the current operational state
     currentRunningState atomic.Value
 
-    // Note: Cleanup-related fields (cleanupService, cleanupQueueCh, unminedCleanupTicker)
-    // were removed in PR #114 when UTXO pruning was extracted to the standalone Pruner service.
-    // See: docs/topics/services/pruner.md
+    // unminedCleanupTicker manages periodic cleanup of old unmined transactions
+    unminedCleanupTicker *time.Ticker
 
     // cachedCandidate stores the cached mining candidate
     cachedCandidate *CachedMiningCandidate
@@ -122,6 +121,9 @@ type BlockAssembler struct {
 
     // unminedTransactionsLoading indicates if unmined transactions are currently being loaded
     unminedTransactionsLoading atomic.Bool
+
+    // wg tracks background goroutines for clean shutdown
+    wg sync.WaitGroup
 }
 ```
 
@@ -149,11 +151,22 @@ type SubtreeProcessor struct {
     // maxBlockSamples is the number of block samples to keep for averaging
     maxBlockSamples int
 
+    // subtreeNodeCounts tracks the actual node count in recent subtrees using a ring buffer
+    // With ~10 min blocks, 18 samples = ~3 hours of history for good stability
+    subtreeNodeCounts     *ring.Ring
+    subtreeNodeCountsSize int // Size of the ring buffer
+
     // txChan receives transaction batches for processing
     txChan chan *[]TxIDAndFee
 
     // getSubtreesChan handles requests to retrieve current subtrees
     getSubtreesChan chan chan []*util.Subtree
+
+    // getSubtreeHashesChan handles requests to retrieve current subtree hashes
+    getSubtreeHashesChan chan chan []chainhash.Hash
+
+    // getTransactionHashesChan handles requests to retrieve transaction hashes
+    getTransactionHashesChan chan chan []chainhash.Hash
 
     // moveForwardBlockChan receives requests to process new blocks
     moveForwardBlockChan chan moveBlockRequest
@@ -183,13 +196,11 @@ type SubtreeProcessor struct {
     chainedSubtreeCount atomic.Int32
 
     // currentSubtree represents the subtree currently being built
-    currentSubtree *util.Subtree
+    // Uses atomic.Pointer for safe concurrent access from external callers (e.g., gRPC handlers)
+    currentSubtree atomic.Pointer[subtreepkg.Subtree]
 
     // currentBlockHeader stores the current block header being processed
     currentBlockHeader *model.BlockHeader
-
-    // Mutex provides thread-safe access to shared resources
-    sync.Mutex
 
     // txCount tracks the total number of transactions processed
     txCount atomic.Uint64
@@ -201,25 +212,31 @@ type SubtreeProcessor struct {
     queue *LockFreeQueue
 
     // currentTxMap tracks transactions currently held in the subtree processor
-    currentTxMap *util.SyncedMap[chainhash.Hash, meta.TxInpoints]
+    currentTxMap *txmap.SyncedMap[chainhash.Hash, subtreepkg.TxInpoints]
 
     // removeMap tracks transactions marked for removal
-    removeMap *util.SwissMap
+    removeMap *txmap.SwissMap
 
-    // subtreeStore manages persistent storage of transaction subtrees
+    // blockchainClient provides access to blockchain data
+    blockchainClient blockchain.ClientI
+
+    // subtreeStore provides persistent storage for subtrees
     subtreeStore blob.Store
 
-    // utxoStore manages the UTXO set storage and retrieval
+    // utxoStore manages UTXO set storage
     utxoStore utxostore.Store
 
-    // logger provides logging functionality
+    // logger handles logging operations
     logger ulogger.Logger
 
     // stats tracks operational statistics
     stats *gocore.Stat
 
-    // currentRunningState tracks the current operational state
+    // currentRunningState tracks the processor's operational state
     currentRunningState atomic.Value
+
+    // announcementTicker periodically triggers currentSubtree announcements
+    announcementTicker *time.Ticker
 }
 ```
 
