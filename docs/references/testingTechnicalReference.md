@@ -25,7 +25,6 @@ type TeranodeTestEnv struct {
 ```go
 type TeranodeTestClient struct {
     Name                string                  // Node identifier
-    SettingsContext     string                  // Configuration context
     BlockchainClient    bc.ClientI              // Blockchain service client
     BlockassemblyClient ba.Client               // Block assembly client
     PropagationClient   *propagation.Client     // Propagation service client
