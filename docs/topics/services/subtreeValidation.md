@@ -83,8 +83,6 @@ The Subtree Validation service interacts with the Validator service to validate 
 
 This configuration is controlled by the settings passed to `GetValidatorClient()` in daemon.go.
 
-> **Note**: For detailed information about how services are initialized and connected during daemon startup, see the [Teranode Daemon Reference](../../references/teranodeDaemonReference.md#service-initialization-flow).
-
 To improve performance, the Subtree Validation Service uses a caching mechanism for UTXO meta data (called `TX Meta Cache` for historical reasons). This prevents repeated fetch calls to the store by retaining recently loaded transactions in memory (for a limited time). This can be enabled or disabled via the `subtreevalidation_txMetaCacheEnabled` setting (Type: `bool`, Default: `true`, Impact: Significantly affects performance and memory usage patterns). The caching mechanism is implemented in the `txmetacache` package, and is used by the Subtree Validation Service:
 
 ```go
