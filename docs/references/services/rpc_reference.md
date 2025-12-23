@@ -139,9 +139,9 @@ type RPCServer struct {
     // Used for mining-related RPC commands like getminingcandidate and generate
     blockAssemblyClient blockassembly.ClientI
 
-    // peerClient provides access to legacy peer network services
+    // legacyP2PClient provides access to legacy peer network services
     // Used for peer management and information retrieval
-    peerClient peer.ClientI
+    legacyP2PClient peer.ClientI
 
     // p2pClient provides access to the P2P network services
     // Used for modern peer management and network operations
@@ -179,7 +179,7 @@ The RPCServer is designed for concurrent operation, employing synchronization me
 ### NewServer
 
 ```go
-func NewServer(logger ulogger.Logger, tSettings *settings.Settings, blockchainClient blockchain.ClientI, blockValidationClient blockvalidation.Interface, utxoStore utxo.Store, blockAssemblyClient blockassembly.ClientI, peerClient peer.ClientI, p2pClient p2p.ClientI, txStore blob.Store, validatorClient validator.Interface) (*RPCServer, error)
+func NewServer(logger ulogger.Logger, tSettings *settings.Settings, blockchainClient blockchain.ClientI, blockValidationClient blockvalidation.Interface, utxoStore utxo.Store, blockAssemblyClient blockassembly.ClientI, legacyP2PClient peer.ClientI, p2pClient p2p.ClientI, txStore blob.Store, validatorClient validator.Interface) (*RPCServer, error)
 ```
 
 Creates a new instance of the RPC Service with the necessary dependencies including logger, settings, blockchain client, block validation client, UTXO store, transaction store, validator client, and service clients.
