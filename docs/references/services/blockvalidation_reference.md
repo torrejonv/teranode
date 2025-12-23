@@ -42,6 +42,8 @@ type Server struct {
     lastCatchupResult         bool                                    // Result of last catchup operation
     catchupAttempts           atomic.Int64                            // Total catchup attempts counter
     catchupSuccesses          atomic.Int64                            // Successful catchup operations counter
+    activeCatchupCtx          *CatchupContext                         // Current catchup context for status reporting
+    activeCatchupCtxMu        sync.RWMutex                            // Mutex for activeCatchupCtx access
 }
 ```
 
