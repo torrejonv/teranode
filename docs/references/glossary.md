@@ -79,6 +79,8 @@
 
 **Proof-of-Work (PoW)**: A consensus mechanism where miners must solve a computationally difficult puzzle to create new blocks. The puzzle involves finding a nonce that produces a block hash below a target difficulty threshold, ensuring security and preventing spam.
 
+**Pruner Service**: Handles periodic pruning of unmined transaction parents and delete-at-height (DAH) records in the UTXO store. Uses event-driven triggers from block notifications to safely clean up old data when block assembly is in a running state.
+
 **Quick Validation**: An optimized validation path for blocks below checkpoints that skips expensive script validation, providing approximately 10x faster processing for historical blocks.
 
 **RPC Service**: Provides compatibility with the Bitcoin RPC interface, allowing clients to interact with the Teranode node using standard Bitcoin RPC commands.
