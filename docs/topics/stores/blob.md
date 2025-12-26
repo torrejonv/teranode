@@ -27,32 +27,38 @@ The Blob Server is a generic datastore that can be used for any specific data mo
 
 The Blob Server provides a set of methods to interact with the TX and Subtree storage implementations.
 
-1. **Health**: `Health(ctx)`
-    - **Purpose**: Checks the health status of the Blob Server.
+1. **Health**: `Health(ctx, checkLiveness)`
+    - **Purpose**: Checks the health status of the Blob Server. Returns HTTP status code, description, and any error.
 
-2. **Exists**: `Exists(ctx, key)`
+2. **Exists**: `Exists(ctx, key, fileType, opts...)`
     - **Purpose**: Determines if a given key exists in the store.
 
-3. **Get**: `Get(ctx, key)`
+3. **Get**: `Get(ctx, key, fileType, opts...)`
     - **Purpose**: Retrieves the value associated with a given key.
 
-4. **GetIoReader**: `GetIoReader(ctx, key)`
+4. **GetIoReader**: `GetIoReader(ctx, key, fileType, opts...)`
     - **Purpose**: Retrieves an `io.ReadCloser` for the value associated with a given key, useful for streaming large data.
 
-5. **Set**: `Set(ctx, key, value, opts...)`
+5. **Set**: `Set(ctx, key, fileType, value, opts...)`
     - **Purpose**: Sets a key-value pair in the store.
 
-6. **SetFromReader**: `SetFromReader(ctx, key, value, opts...)`
+6. **SetFromReader**: `SetFromReader(ctx, key, fileType, reader, opts...)`
     - **Purpose**: Sets a key-value pair in the store from an `io.ReadCloser`, useful for streaming large data.
 
-7. **SetTTL**: `SetTTL(ctx, key, ttl)`
-    - **Purpose**: Sets a Time-To-Live for a given key.
+7. **SetDAH**: `SetDAH(ctx, key, fileType, dah, opts...)`
+    - **Purpose**: Sets a Delete-At-Height (DAH) value for a given key. The blob will be automatically deleted when the blockchain reaches the specified height.
 
-8. **Del**: `Del(ctx, key)`
+8. **GetDAH**: `GetDAH(ctx, key, fileType, opts...)`
+    - **Purpose**: Retrieves the Delete-At-Height value for a given key.
+
+9. **Del**: `Del(ctx, key, fileType, opts...)`
     - **Purpose**: Deletes a key and its associated value from the store.
 
-9. **Close**: `Close(ctx)`
+10. **Close**: `Close(ctx)`
     - **Purpose**: Closes the Blob Server connection or any associated resources.
+
+11. **SetCurrentBlockHeight**: `SetCurrentBlockHeight(height)`
+    - **Purpose**: Sets the current block height for the store, used by the DAH (Delete-At-Height) mechanism.
 
 ## 2. Architecture
 
@@ -272,7 +278,8 @@ The Blob Server cannot be run independently. It is instantiated as part of the m
 
 ## 8. Configuration Options
 
-For comprehensive configuration documentation including all settings, defaults, and interactions, see the [ublob Store Settings Reference](../../references/settings/stores/blob_settings.md).
+For comprehensive configuration documentation including all settings, defaults, and interactions, see the [Blob Store Settings Reference](../../references/settings/stores/blob_settings.md).
+
 ## 9. Other Resources
 
 [Blob Server Reference](../../references/stores/blob_reference.md)
