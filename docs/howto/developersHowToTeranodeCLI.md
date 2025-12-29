@@ -243,27 +243,27 @@ Press `r` to refresh manually or `q` to quit.
 
 1. Start your Teranode node:
 
-   ```bash
-   SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] go run .
-   ```
+    ```bash
+    SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] go run .
+    ```
 
 2. Check the initial FSM state:
 
-   ```bash
-   SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli getfsmstate
-   ```
+    ```bash
+    SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli getfsmstate
+    ```
 
 3. Transition to RUNNING state:
 
-   ```bash
-   SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli setfsmstate --fsmstate running
-   ```
+    ```bash
+    SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli setfsmstate --fsmstate running
+    ```
 
 4. Verify the FSM state change:
 
-   ```bash
-   SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli getfsmstate
-   ```
+    ```bash
+    SETTINGS_CONTEXT=dev.[YOUR_CONTEXT] ./teranode-cli getfsmstate
+    ```
 
 ### Debugging Tips
 
