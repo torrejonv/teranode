@@ -51,6 +51,9 @@ The Blob Store provides a set of methods to interact with the TX and Subtree sto
 
 - **SetCurrentBlockHeight**: `SetCurrentBlockHeight(height uint32)` - Sets the current block height for the store, used for DAH functionality.
 
+11. **SetCurrentBlockHeight**: `SetCurrentBlockHeight(height)`
+    - **Purpose**: Sets the current block height for the store, used by the DAH (Delete-At-Height) mechanism.
+
 ## 2. Architecture
 
 The Blob Store is a store interface, with implementations for Tx Store and Subtree Store.
