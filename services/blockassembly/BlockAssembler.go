@@ -1,4 +1,18 @@
 // Package blockassembly provides functionality for assembling Bitcoin blocks in Teranode.
+//
+// This package manages the block creation process using a subtree-based architecture for
+// high-throughput transaction processing. It handles transaction selection, block template
+// generation, and mining integration.
+//
+// Architecture:
+//   - BlockAssembler: Core component managing block assembly state and coordination
+//   - SubtreeProcessor: Handles transaction organization into Merkle subtrees
+//   - Server: Provides gRPC API for mining and transaction submission
+//   - Client: Facilitates communication with the block assembly service
+//
+// Integration points: Blockchain service, UTXO store, Propagation service, Mining systems.
+//
+// Thread-safe: All public APIs are safe for concurrent use.
 package blockassembly
 
 import (
@@ -165,23 +179,30 @@ type BlockAssembler struct {
 	wg sync.WaitGroup
 }
 
-// BestBlockInfo holds both the block header and height atomically
+// BestBlockInfo holds both the block header and height atomically.
+// Used with atomic.Pointer to prevent race conditions between header and height updates.
 type BestBlockInfo struct {
 	Header *model.BlockHeader
 	Height uint32
 }
 
+// blockHeaderWithMeta pairs a block header with its associated metadata.
 type blockHeaderWithMeta struct {
 	header *model.BlockHeader
 	meta   *model.BlockHeaderMeta
 }
 
+// blockWithMeta pairs a complete block with its associated metadata.
 type blockWithMeta struct {
 	block *model.Block
 	meta  *model.BlockHeaderMeta
 }
 
-// CachedMiningCandidate holds a cached mining candidate with expiration
+// CachedMiningCandidate holds a cached mining candidate with expiration and smart invalidation.
+// Caches block templates to avoid regeneration on every mining request. Tracks state changes
+// (tx count, size, subtree count) to determine when invalidation is needed.
+//
+// Thread-safe: Protected by mu RWMutex.
 type CachedMiningCandidate struct {
 	mu             sync.RWMutex
 	candidate      *model.MiningCandidate
