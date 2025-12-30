@@ -182,8 +182,9 @@ The Subtree Validation service implements a distributed pause mechanism that coo
 2. A distributed lock is created in the shared storage with automatic heartbeat
 3. All other pods check `isPauseActive()` before processing subtrees:
 
-   - First checks local atomic flag (fast path)
-   - If local flag is false, checks for distributed lock
+    - First checks local atomic flag (fast path)
+    - If local flag is false, checks for distributed lock
+
 4. If pause is active, subtree processing is skipped
 5. When block validation completes, the lock is released
 6. If a pod crashes during validation, the lock becomes stale after the timeout period and is automatically cleaned up by other pods
